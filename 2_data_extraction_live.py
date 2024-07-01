@@ -1,12 +1,12 @@
 import cv2
 
-cap = cv2.VideoCapture("memory/memory_piece2.avi")
+# 노트북 카메라를 사용하여 VideoCapture 객체 생성
+cap = cv2.VideoCapture(0)  # 0은 노트북 내장 카메라를 의미, 다른 카메라일 경우 1, 2 등으로 변경 가능
 
 # SIFT 생성
 sift = cv2.SIFT_create()
 
 if cap.isOpened():
-    fps = 25.40
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -28,10 +28,12 @@ if cap.isOpened():
         # 화면에 표시
         cv2.imshow('frame with keypoints', frame_with_keypoints)
 
-        if cv2.waitKey(int(1000/fps)) != -1:
+        # 'q' 키를 누르면 종료
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 else:
     print("no camera")
 
+# 리소스 해제
 cap.release()
 cv2.destroyAllWindows()
