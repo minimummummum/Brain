@@ -62,6 +62,7 @@ with open('name_info.pkl', 'wb') as f:
 import numpy as np
 import cv2
 import pickle
+import os
 auto_mode = False
 actions = {}
 agent = {}
@@ -134,23 +135,71 @@ def naming(detect_data):
                 best_matche_list_detail = matche_list_detail[j]
                 if best_matche_list_detail is not None:  # None 체크 추가
                     best_matche_list.append([best_matche_list_main, best_matche_list_detail])
-####2024-07-04 여기까지함@@@
     if auto_mode:
         pass # 구현할 때 naming()에 매개변수 받고, 그걸로 name_info 돌려서 비슷한 거 일정 퍼센트 넘으면 그 이름으로
             # 만약, soccer과 유사한데, 그 중에서 pass와 유사할 경우 pass/pass1, 2, 3 ...
+            # 메인 키 검색해서 특정 일치율 넘는 게 없을 경우 & 세부 키에서도 특정 일치율 넘는 게 없을 경우
+            # 새로운 메인 키 생성
     else:
         print(name_info.keys())
         print(f"현재 가장 유사한 카테고리: {best_matche_list}")
         main_key = input("어떤 이름으로 지정하겠습니까?") # 재정의, 새정의?
         if main_key in name_info:
-            print("존재")
+            print("지정하신 이름은 현재 존재하는 이름입니다.")
+            print(name_info[main_key].keys())
+            detail_key = input(f"세부 이름을 지정해주세요.(메인 이름과 동일하게 가능) {main_key}/")
         else:
             print("미존재")
-        
-    return name
+            detail_key = None
+    return main_key, detail_key
+
+# 이름 정보를 파일에 저장하는 함수
+def save_data_to_file(dir_path, filename, data, img):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    cv2.imwrite(os.path.join(dir_path, f"{filename}.jpg"), img)
+    with open(os.path.join(dir_path, f"{filename}.pkl"), 'wb') as f:
+        pickle.dump(data, f)
+
 # name_info에 name 저장
-def name_info_save(name, keypoints_list):
-    pass
+def name_info_save(img, detect_data, main_key, detail_key, actions=[], reward=0): # 코드 개선, 백업 코드 바탕화면 스티커 노트
+    global name_info
+    
+    # main_key가 name_info에 없을 경우
+    if main_key not in name_info:
+        name_info[main_key] = {}
+
+    if main_key == detail_key or detail_key is None:
+        if main_key in name_info and name_info[main_key]:
+            index = 1
+            while f"memory/{main_key}{index}" in name_info[main_key]:
+                index += 1
+            memory_key = f"memory/{main_key}{index}"
+        else:
+            memory_key = f"memory/{main_key}"
+    else:
+        if f"memory/{main_key}/{detail_key}" in name_info[main_key]:
+            index = 1
+            while f"memory/{main_key}/{detail_key}{index}" in name_info[main_key]:
+                index += 1
+            memory_key = f"memory/{main_key}/{detail_key}{index}"
+        else:
+            memory_key = f"memory/{main_key}/{detail_key}"
+
+    name_info[main_key][memory_key] = {
+        "keypoints": detect_data[0],
+        "descriptor": detect_data[1],
+        "actions": actions,
+        "reward": reward
+    }
+
+    # 디렉토리 생성 및 이미지와 데이터 저장
+    save_data_to_file(memory_key, detail_key if detail_key else main_key, name_info[main_key][memory_key], img)
+
+    # name_info 업데이트
+    with open('configuration/name_info.pkl', 'wb') as f:
+        pickle.dump(name_info, f)
+###2024-07-09 여기까지 함 이제 테스트 데이터 만들어서 넣고 함수 테스트 하면 될듯
 
 name_info = {
     "name": {
@@ -194,11 +243,8 @@ name_info = {
         }
     }
 }
-naming(0, 0)
 
 
-# 메인 키 검색해서 특정 일치율 넘는 게 없을 경우 & 세부 키에서도 특정 일치율 넘는 게 없을 경우
-# 새로운 메인 키 생성
 
 
 
