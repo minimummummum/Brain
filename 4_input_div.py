@@ -288,18 +288,18 @@ def name_info_change(main_key, rename_main_key): # 07-19 이름 수정 기능 �
         with open('configuration/name_info.pkl', 'wb') as f:
             pickle.dump(name_info, f)
 
-#main_test, 나중에 함수에 넣기
-reboot_set()
-print("현재 name_info")
-print(name_info)
-img = cv2.imread('input.jpg')
-descriptor = detect_sift(img)
-best_match_list = match_ratios(descriptor)
-main_key, detail_key = naming(best_match_list)
-name_info_save(img, descriptor, main_key, detail_key, actions=[], reward=0)
-print("수정 name_info")
-print(name_info)
-main_key_edu()
+# test
+# reboot_set()
+# print("현재 name_info")
+# print(name_info)
+# img = cv2.imread('input.jpg')
+# descriptor = detect_sift(img)
+# best_match_list = match_ratios(descriptor)
+# main_key, detail_key = naming(best_match_list)
+# name_info_save(img, descriptor, main_key, detail_key, actions=[], reward=0)
+# print("수정 name_info")
+# print(name_info)
+# main_key_edu()
 
 
 
@@ -313,36 +313,85 @@ main_key_edu()
 # 4. best_match_main 중 min(len, 5)개 정도만 높은 순으로 컷하여서 main의 detail 전부 돌면서 가장 높은 거 하나 뽑기
 # 5. 뽑은 걸 best_match_detail 리스트에 저장, 높은 순으로 정렬 
 # 6. 그걸로 naming 함수 실행 2024-07-16 완
-# 오토모드 개발하기 # 2024-07-19 완 -> 액션 개발하면 됨
+# 오토모드 개발하기 # 2024-07-19 완 -> 액션 개발하면 됨 -> 리워드 추가, 리워드 부터 개발
 
+
+########################################################################
 # 액션
 # 그리고 추가해야 할 게 액션을 했을 경우 그 img와 데이터, 어떤 액션 했는지까지 저장
 # 즉, name_info_save는 액션했을 때는 무조건 실행 후 저장 but 액션 안 했을 때 실행 안 되는 건 아님
 # 에피소드? 리플레이? 폴더 생성
 # start -> action -> end(reward) 과정 img, descriptor, action, reward 주기적으로 저장
 # 그 폴더 참고하여 액션 선택
-########################################################################
 """
 Actions
+# 로봇 관절 인덱스
+shoulder_right = 4 # -10~190
+shoulder_left = 49 # -190~10
+hand_right = 7 # -60~50
+hand_left = 52 # -50~60
+leg_right = 15 # -20~20
+leg_left = 31 # -20~20
+foot_right = 20 # -90~90
+foot_left = 36 # -90~90
+max_velocity = 8 # 모터 속도
 actions_info = {
-    #servo motor
-    "왼발목": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180]
-    "오른발목": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180]
-    ...
-
+    "motor_control":{
+        "shoulder_right": [-10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190],
+        "shoulder_left": [-10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190],
+        "hand_right": [-50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50],
+        "hand_left": [-50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50],
+        "leg_right": [-20, -10, 0, 10, 20],
+        "leg_left": [-20, -10, 0, 10, 20],
+        "foot_right": [-90, -80, -70, -60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
+        "foot_left": [-90, -80, -70, -60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
+        "delay": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    }
     #package
-    "work": {
-        "configuration/action/work1": [[왼발목, 30], [딜레이, 5], [골반,  30], [딜레이, 5], [왼발목, 0]],
-        "configuration/action/work2": [],
-        "configuration/action/work3": []
-    },
-    "turn_left": {
-        "configuration/action/turn_left1": [],
-        "configuration/action/turn_left2": [],
-        "configuration/action/turn_left3": []
-    },
+    "work": [[foot_left, 7], [foot_right, 7], [delay, 1] ...],
+    "turn_left": [],
+    "stop": [[delay, 10]]
 }
+2024-07-21
+1. 어떤 액션을 할 것인가? package에서 액션 선택하는 기능
+2. 액션 시작할 때 img, 액션 끝나고 img, 어떤 액션 했는지, reward 저장(episode? replay?), or name_info에 action, reward 추가?
+3. 액션 학습 모드. work에서 수정, 추가, 삭제를 통해 보상 확인 후 work2, work3 등 생성, 저장
+
 
 """
 
+
+########################################################################
+# 리워드
+# 어떤 보상을 주는 기관
+# ex) 기울기 센서가 많이 기울었을 경우 마이너스 보상
+# mini_game 네모 박스 안에 있을 경우 플러스 보상 -> 검정 공 물체 따라가기 follow ball
+# def add(a,b):
+    # return a+b
+# def multiply(a,b):
+    # return a*b
+# always_functions = { 여기는 넘어짐, 부딪힘 등
+# 'add': add,
+# 'multiply': multiply
+# }
+# with open('functions.pkl', 'wb') as file:
+#     pickle.dump(functions, file)
+
+# temp_functions = { 여기는 minigame 같은 거
+# }
+
+# 저장된 함수 객체들을 파일에서 불러오기
+# with open('functions.pkl', 'rb') as file:
+#     loaded_functions = pickle.load(file)
+
+# loaded_functions['add'](3, 5)
+# loaded_functions['multiply'](4, 6)
+
+def mini_game_follow_ball():#2024-07-22 여기하는중
+    # ball 이미지 등록 후 cam에서 ball이 감지될 경우 게임 시작
+    # cam에서 ball이 있으면 +보상, cam에서 ball이 없으면 -보상
+    # 처음에는 랜덤으로 액션 선택 stay, work, turn_left. turn_right
+    # short_memory 만들어서 단기 기억 생성, -+ 보상 얻을 때마다 img 저장, 액션 저장
+    # 현재 이미지를 short_memory 참고해서 비슷한 순 
+    # short_memory에서 각 비슷한 상황일 때 보상 높은 걸로 리플레이? 에피소드?에 저장
 ########################################################################
