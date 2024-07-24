@@ -60,12 +60,17 @@ import os
 import random
 import string
 import re
+import threading
+import time
 auto_mode = False
 actions = {}
 agent = {}
 name_info = {}
 bf = cv2.BFMatcher()
-
+servo_state = [0,0,0,0,0,0,0,0]
+servo_lock = threading.Lock()
+reward_global = 0
+reward_lock = threading.Lock()
 # configuration 폴더 내 정보 모두 불러오기
 def reboot_set():
     global actions, agent, name_info
@@ -356,10 +361,48 @@ actions_info = {
 1. 어떤 액션을 할 것인가? package에서 액션 선택하는 기능
 2. 액션 시작할 때 img, 액션 끝나고 img, 어떤 액션 했는지, reward 저장(episode? replay?), or name_info에 action, reward 추가?
 3. 액션 학습 모드. work에서 수정, 추가, 삭제를 통해 보상 확인 후 work2, work3 등 생성, 저장
-
-
 """
+def action():
+    action_message = action_select()
+    action_save(action_start(action_message))
 
+def action_select():#2024-07-24
+    pass
+def action_start(action_message):
+    action_reward = []
+    global reward_global
+    start_img = None # 임시로 None
+    with servo_lock:
+        for action in action_message:
+            if action[0] == "shoulder_right":
+                servo_state[0] = action[1]
+            elif action[0] == "shoulder_left":
+                servo_state[1] = action[1]
+            elif action[0] == "hand_right":
+                servo_state[2] = action[1]
+            elif action[0] == "hand_left":
+                servo_state[3] = action[1]
+            elif action[0] == "leg_right":
+                servo_state[4] = action[1]
+            elif action[0] == "leg_left":
+                servo_state[5] = action[1]
+            elif action[0] == "foot_right":
+                servo_state[6] = action[1]
+            elif action[0] == "foot_left":
+                servo_state[7] = action[1]
+            elif action[0] == "delay":
+                time.sleep(action[1])
+            else:
+                print("action_message 오류")
+                continue
+            #set_text_to_send(str(servo_state))
+            with reward_lock:
+                action_reward.append([action[0], action[1], reward_global])
+    end_img = None # 임시로 None
+    return start_img, end_img, action_reward
+def action_save(start_img, end_img, action_reward):
+    pass
+        
 
 ########################################################################
 # 리워드
@@ -387,7 +430,8 @@ actions_info = {
 # loaded_functions['add'](3, 5)
 # loaded_functions['multiply'](4, 6)
 
-def mini_game_follow_ball():#2024-07-22 여기하는중
+#def mini_game_follow_ball():#2024-07-22 여기하는중 2024-07-23 보류(액션부터 개발하자)-> 방향성 재정비 필요 -> 얘가 한 번 해봤던 거는 계속 학습 가능 해야함 즉, 처음 한 번은 해볼 수 있게 해줘야함
+    # input으로 예상 데이터 생성 후 그거에 대한 액션 계획을 생성해야하는데, 처음에는 랜덤으로 아무거나 선택
     # ball 이미지 등록 후 cam에서 ball이 감지될 경우 게임 시작
     # cam에서 ball이 있으면 +보상, cam에서 ball이 없으면 -보상
     # 처음에는 랜덤으로 액션 선택 stay, work, turn_left. turn_right
