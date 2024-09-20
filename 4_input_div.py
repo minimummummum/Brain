@@ -366,8 +366,9 @@ def action():
     action_message = action_select()
     action_save(action_start(action_message))
 
-def action_select():#2024-07-24
+def action_select():#2024-08-16
     pass
+
 def action_start(action_message):
     action_reward = []
     global reward_global
@@ -394,7 +395,6 @@ def action_start(action_message):
                 time.sleep(action[1])
             else:
                 print("action_message 오류")
-                continue
             #set_text_to_send(str(servo_state))
             with reward_lock:
                 action_reward.append([action[0], action[1], reward_global])
